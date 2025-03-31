@@ -51,6 +51,8 @@ struct Args {
     stage: Stage,
     #[clap(value_enum, short, long, value_name = "FPGA_TARGET")]
     fpga_target: FpgaTarget,
+    #[clap(short, long, value_name = "FPGA_IDENTIFIER")]
+    fpga_identifier: String,
 }
 
 fn main() {
@@ -77,7 +79,11 @@ fn main() {
         }
         Stage::Prod => {
             // TODO: Set environment variables for prod
-            eprintln!("TODO: Set environment variables for prod");
+            env::set_var("GCP_ZONE", "us-central-1");
+            env::set_var("GCP_PROJECT", "caliptra-github-ci");
+            env::set_var("GITHUB_ORG", "chipsalliance");
+            github_app_id = Some("379559");
+            github_installation_id = Some("40993215");
         }
     }
 
@@ -97,10 +103,10 @@ fn main() {
     let current_date = now.date_naive().format("%Y-%m-%d").to_string();
 
 
-    // Construct the rtool command
-    let rtool_path = "/home/clundin/code/caliptra-sw/ci-tools/github-runner/cmd/rtool/rtool";
+    let fpga_identifier = args.fpga_identifier;
+    let rtool_path = "/usr/local/google/home/clundin/code/caliptra-sw/ci-tools/github-runner/cmd/rtool/rtool";
     let jitconfig_arg = "jitconfig";
-    let final_arg = format!("{}-kir-1-{}-{}", fpga_target, rand_postfix, current_date);
+    let final_arg = format!("{}-kir-{}-{}-{}", fpga_target, fpga_identifier,rand_postfix, current_date);
 
 
     let mut command = Command::new(rtool_path);
