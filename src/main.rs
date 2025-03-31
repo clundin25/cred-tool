@@ -51,7 +51,7 @@ struct Args {
     stage: Stage,
     #[clap(value_enum, short, long, value_name = "FPGA_TARGET")]
     fpga_target: FpgaTarget,
-    #[clap(short, long, value_name = "FPGA_IDENTIFIER")]
+    #[clap(short = 'i', long, value_name = "FPGA_IDENTIFIER")]
     fpga_identifier: String,
 }
 
