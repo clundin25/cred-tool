@@ -29,6 +29,7 @@ impl std::str::FromStr for Stage {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum FpgaTarget {
     Zcu104,
+    Zcu104Nightly,
     Vck190,
 }
 
@@ -37,9 +38,10 @@ impl std::str::FromStr for FpgaTarget {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
+            "zcu104-nightly" => Ok(Self::Zcu104Nightly),
             "zcu104" => Ok(Self::Zcu104),
             "vck190" => Ok(Self::Vck190),
-            _ => Err(format!("Invalid fpga: '{}'. Must be one of 'zcu104' or 'vck190'.", s)),
+            _ => Err(format!("Invalid fpga: '{}'. Must be one of 'zcu104', 'zcu104-nightly' or 'vck190'.", s)),
         }
     }
 }
@@ -89,7 +91,12 @@ fn main() {
 
     let fpga = args.fpga_target;
     let fpga_target = match fpga {
+        FpgaTarget::Zcu104Nightly | FpgaTarget::Zcu104 => "caliptra-fpga",
+        FpgaTarget::Vck190 => "vck190",
+    };
+    let fpga_label = match fpga {
         FpgaTarget::Zcu104 => "caliptra-fpga",
+        FpgaTarget::Zcu104Nightly => "caliptra-fpga,caliptra-fpga-nightly",
         FpgaTarget::Vck190 => "vck190",
     };
 
@@ -111,7 +118,7 @@ fn main() {
 
     let mut command = Command::new(rtool_path);
     command.arg(jitconfig_arg)
-        .arg(fpga_target)
+        .arg(fpga_label)
         .arg(github_app_id.unwrap())
         .arg(github_installation_id.unwrap())
         .arg(final_arg);
