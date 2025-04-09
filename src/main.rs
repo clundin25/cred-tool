@@ -1,6 +1,7 @@
 use chrono::prelude::*;
 use rand::Rng;
 use clap::Parser;
+use octocrab::auth::create_jwt;
 
 use std::env;
 use std::process::Command;
@@ -57,14 +58,15 @@ struct Args {
     fpga_identifier: String,
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
     let args = Args::parse();
     let stage = args.stage;
 
     eprintln!("Running for stage: {:?}", stage);
 
-    let mut github_app_id: Option<&'static str> = None;
-    let mut github_installation_id: Option<&'static str> = None;
+    let mut github_app_id: Option<u64> = None;
+    let mut github_installation_id: Option<u64> = None;
 
     match stage {
         Stage::Carl => {
@@ -72,8 +74,8 @@ fn main() {
             env::set_var("GCP_ZONE", "us-central-1");
             env::set_var("GCP_PROJECT", "carl-caliptra-github-ci");
             env::set_var("GITHUB_ORG", "clundin25-testorg");
-            github_app_id = Some("1160975");
-            github_installation_id = Some("61798278");
+            github_app_id = Some(1160975);
+            github_installation_id = Some(61798278);
         }
         Stage::Staging => {
             // TODO: Set environment variables for staging
@@ -84,8 +86,8 @@ fn main() {
             env::set_var("GCP_ZONE", "us-central-1");
             env::set_var("GCP_PROJECT", "caliptra-github-ci");
             env::set_var("GITHUB_ORG", "chipsalliance");
-            github_app_id = Some("379559");
-            github_installation_id = Some("40993215");
+            github_app_id = Some(379559);
+            github_installation_id = Some(40993215);
         }
     }
 
@@ -116,26 +118,42 @@ fn main() {
     let final_arg = format!("{}-kir-{}-{}-{}", fpga_target, fpga_identifier,rand_postfix, current_date);
 
 
-    let mut command = Command::new(rtool_path);
-    command.arg(jitconfig_arg)
-        .arg(fpga_label)
-        .arg(github_app_id.unwrap())
-        .arg(github_installation_id.unwrap())
-        .arg(final_arg);
+    //let mut command = Command::new(rtool_path);
+    //command.arg(jitconfig_arg)
+    //    .arg(fpga_label)
+    //    .arg(github_app_id.unwrap())
+    //    .arg(github_installation_id.unwrap())
+    //    .arg(final_arg);
+    let app_id = octocrab::models::AppId::from(github_app_id.unwrap());
+    let key = jsonwebtoken::EncodingKey::from_rsa_pem(&std::fs::read("/etc/secrets/caliptra-gce-ci-github-private-key-pem/carl").unwrap()).unwrap();
+    let octocrab = octocrab::Octocrab::builder().app(app_id, key).build().unwrap();
+    let octocrab = octocrab.installation(github_installation_id.unwrap().into()).unwrap();
+    let jit_config = octocrab
+        .actions()
+        .create_org_jit_runner_config(
+            "clundin25-testorg",
+            "octocrab-test",
+            1.into(),
+            ["octocrab".into()],
+        )
+        .send()
+        .await.unwrap();
+// jit_config.encoded_jit_config contains the base64-encoded runner configuration
+    println!("{:?}", jit_config.encoded_jit_config);
 
     // Execute the command and handle the output
-    match command.status() {
-        Ok(status) => {
-            if status.success() {
-                eprintln!("rtool command executed successfully.");
-            } else {
-                eprintln!("Error: rtool command failed with status {:?}", status);
-            }
-        }
-        Err(e) => {
-            eprintln!("Error executing rtool command: {}", e);
-        }
-    }
+    //match command.status() {
+    //    Ok(status) => {
+    //        if status.success() {
+    //            eprintln!("rtool command executed successfully.");
+    //        } else {
+    //            eprintln!("Error: rtool command failed with status {:?}", status);
+    //        }
+    //    }
+    //    Err(e) => {
+    //        eprintln!("Error executing rtool command: {}", e);
+    //    }
+    //}
 
     // If you need the output of the command, you can use the following:
     //match command.output() {
