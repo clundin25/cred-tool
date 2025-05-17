@@ -52,14 +52,20 @@ impl std::str::FromStr for FpgaTarget {
 /// New type for self-hosted runner labels
 struct RunnerLabels(Vec<String>);
 
-impl From<FpgaTarget> for RunnerLabels {
-    fn from(value: FpgaTarget) -> Self {
+impl RunnerLabels {
+    fn new(value: FpgaTarget, dry_run: bool) -> Self {
+        let postfix = if dry_run { "-staging" } else { "" };
         let inner = match value {
             FpgaTarget::Zcu104 => vec!["caliptra-fpga".to_string()],
             FpgaTarget::Zcu104Nightly => {
-                vec!["caliptra-fpga".to_string(), "caliptra-fpga-nightly".to_string()]
+                vec![
+                    "caliptra-fpga".to_string(),
+                    "caliptra-fpga-nightly".to_string(),
+                ]
             }
-            FpgaTarget::Vck190 => vec!["vck190".to_string()],
+            FpgaTarget::Vck190 => {
+                vec![format!("vck190{}", postfix)]
+            }
         };
         Self(inner)
     }
@@ -107,6 +113,8 @@ struct Args {
     location: String,
     #[clap(short, long, value_name = "KEY_PATH")]
     key_path: String,
+    #[clap(short, long)]
+    dry_run: bool,
 }
 
 struct CaliptraCiInfo {
@@ -190,7 +198,7 @@ async fn main() -> Result<()> {
     eprintln!("Running for stage: {:?}", args.stage);
 
     let name = RunnerName::new(args.fpga_target, &args.fpga_identifier, &args.location);
-    let labels = RunnerLabels::from(args.fpga_target);
+    let labels = RunnerLabels::new(args.fpga_target, args.dry_run);
     let github = OctocrabWrapper::new(&args.into())?;
 
     match github.runner_jit_token(name, labels).await {
